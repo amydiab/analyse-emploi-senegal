@@ -18,10 +18,7 @@ st.set_page_config(page_title="Offres d'emploi au Sénégal", layout="wide")
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv(
-        r'C:\Users\Dieu Merci Le Doux\Documents\analyse-emploi-senegal\dataset_final_propre.csv',
-        encoding='utf-8'
-    )
+    df = pd.read_csv('dataset_final_propre.csv', encoding='utf-8')
     df['mois'] = pd.to_datetime(df['mois'], errors='coerce')
     df = df.dropna(subset=['mois'])
     return df
