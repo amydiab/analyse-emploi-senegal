@@ -1,0 +1,4 @@
+.env
+dataset_final_propre.csv
+lancer.bat
+__pycache__/
