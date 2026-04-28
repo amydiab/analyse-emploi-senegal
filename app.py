@@ -52,44 +52,7 @@ if ville_choisie != 'Toutes':
 if contrat_choisi != 'Tous':
     dff = dff[dff['contrat'] == contrat_choisi]
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total offres", len(dff))
-col2.metric("Secteur dominant", dff['secteur'].value_counts().index[0] if len(dff) > 0 else "—")
-col3.metric("Ville principale", dff['ville'].value_counts().index[0] if len(dff) > 0 else "—")
-col4.metric("Contrat majoritaire", dff['contrat'].value_counts().index[0] if len(dff) > 0 else "—")
-
-st.divider()
-
-col_a, col_b = st.columns(2)
-
-with col_a:
-    st.subheader("Top secteurs")
-    secteur_count = dff['secteur'].value_counts().dropna().head(10).reset_index()
-    secteur_count.columns = ['secteur', 'count']
-    fig1 = px.bar(secteur_count, x='count', y='secteur', orientation='h',
-                  color_discrete_sequence=['#1D9E75'])
-    fig1.update_layout(yaxis={'categoryorder': 'total ascending'},
-                       xaxis_title="Nombre d'offres", yaxis_title="")
-    st.plotly_chart(fig1, use_container_width=True)
-
-with col_b:
-    st.subheader("Répartition des contrats")
-    contrat_count = dff['contrat'].value_counts().dropna().reset_index()
-    contrat_count.columns = ['contrat', 'count']
-    fig2 = px.bar(contrat_count, x='count', y='contrat', orientation='h',
-                  color_discrete_sequence=['#1D9E75'])
-    fig2.update_layout(yaxis={'categoryorder': 'total ascending'},
-                       xaxis_title="Nombre d'offres", yaxis_title="")
-    st.plotly_chart(fig2, use_container_width=True)
-
-st.subheader("Évolution mensuelle des offres")
-evolution = dff.groupby('mois').size().reset_index(name='nb_offres')
-fig3 = px.line(evolution, x='mois', y='nb_offres',
-               color_discrete_sequence=['#1D9E75'],
-               markers=True)
-fig3.update_layout(xaxis_title="Mois", yaxis_title="Nombre d'offres")
-st.plotly_chart(fig3, use_container_width=True)
-
+# KPI CARDS
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -128,7 +91,64 @@ with col4:
     """, unsafe_allow_html=True)
 
 st.divider()
-st.subheader("Assistant IA :  Posez vos questions sur les données")
+
+col_a, col_b = st.columns(2)
+
+with col_a:
+    st.subheader("Top secteurs")
+    secteur_count = dff['secteur'].value_counts().dropna().head(10).reset_index()
+    secteur_count.columns = ['secteur', 'count']
+    fig1 = px.bar(secteur_count, x='count', y='secteur', orientation='h',
+                  color_discrete_sequence=['#1D9E75'])
+    fig1.update_layout(yaxis={'categoryorder': 'total ascending'},
+                       xaxis_title="Nombre d'offres", yaxis_title="")
+    st.plotly_chart(fig1, use_container_width=True)
+
+with col_b:
+    st.subheader("Répartition des contrats")
+    contrat_count = dff['contrat'].value_counts().dropna().reset_index()
+    contrat_count.columns = ['contrat', 'count']
+    fig2 = px.bar(contrat_count, x='count', y='contrat', orientation='h',
+                  color_discrete_sequence=['#1D9E75'])
+    fig2.update_layout(yaxis={'categoryorder': 'total ascending'},
+                       xaxis_title="Nombre d'offres", yaxis_title="")
+    st.plotly_chart(fig2, use_container_width=True)
+
+st.subheader("Évolution mensuelle des offres")
+evolution = dff.groupby('mois').size().reset_index(name='nb_offres')
+fig3 = px.line(evolution, x='mois', y='nb_offres',
+               color_discrete_sequence=['#1D9E75'],
+               markers=True)
+fig3.update_layout(xaxis_title="Mois", yaxis_title="Nombre d'offres")
+st.plotly_chart(fig3, use_container_width=True)
+
+col_c, col_d = st.columns(2)
+
+with col_c:
+    st.subheader("Répartition géographique")
+    ville_count = dff['ville'].value_counts().dropna().head(10).reset_index()
+    ville_count.columns = ['ville', 'count']
+    fig4 = px.bar(ville_count, x='count', y='ville', orientation='h',
+                  color_discrete_sequence=['#1D9E75'])
+    fig4.update_layout(yaxis={'categoryorder': 'total ascending'},
+                       xaxis_title="Nombre d'offres", yaxis_title="")
+    st.plotly_chart(fig4, use_container_width=True)
+
+with col_d:
+    st.subheader("Top 10 compétences")
+    a_exclure = ['Non spécifié', '']
+    comps = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
+    comps = comps[~comps.isin(a_exclure) & (comps != '')]
+    top_comp = comps.value_counts().head(10).reset_index()
+    top_comp.columns = ['competence', 'count']
+    fig5 = px.bar(top_comp, x='count', y='competence', orientation='h',
+                  color_discrete_sequence=['#1D9E75'])
+    fig5.update_layout(yaxis={'categoryorder': 'total ascending'},
+                       xaxis_title="Nombre de mentions", yaxis_title="")
+    st.plotly_chart(fig5, use_container_width=True)
+
+st.divider()
+st.subheader("Assistant IA : Posez vos questions sur les données")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
