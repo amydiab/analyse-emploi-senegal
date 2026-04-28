@@ -21,7 +21,7 @@ def load_data():
     df = pd.read_csv('dataset_final_propre.csv', encoding='utf-8')
     df['mois'] = pd.to_datetime(df['mois'], errors='coerce')
     df = df.dropna(subset=['mois'])
-    df = df[df['entreprise'] != 'Non spécifié']
+    df = df[~df['entreprise'].str.contains('Non', na=False)]
     return df
 
 df = load_data()
