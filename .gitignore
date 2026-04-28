@@ -1,3 +1,8 @@
 .env
 lancer.bat
 __pycache__/
+.vscode/
+test_api.py
+git add .gitignore app.py
+git commit -m "fix: filtre entreprise Non spécifié"
+git push
