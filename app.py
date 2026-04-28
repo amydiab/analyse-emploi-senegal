@@ -90,30 +90,42 @@ fig3 = px.line(evolution, x='mois', y='nb_offres',
 fig3.update_layout(xaxis_title="Mois", yaxis_title="Nombre d'offres")
 st.plotly_chart(fig3, use_container_width=True)
 
-col_c, col_d = st.columns(2)
+col1, col2, col3, col4 = st.columns(4)
 
-with col_c:
-    st.subheader("Répartition géographique")
-    ville_count = dff['ville'].value_counts().dropna().head(10).reset_index()
-    ville_count.columns = ['ville', 'count']
-    fig4 = px.bar(ville_count, x='count', y='ville', orientation='h',
-                  color_discrete_sequence=['#1D9E75'])
-    fig4.update_layout(yaxis={'categoryorder': 'total ascending'},
-                       xaxis_title="Nombre d'offres", yaxis_title="")
-    st.plotly_chart(fig4, use_container_width=True)
+with col1:
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Total offres</p>
+        <p style="margin:0; font-size:24px; font-weight:bold; color:#1D9E75;">{len(dff)}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-with col_d:
-    st.subheader("Top 10 compétences")
-    a_exclure = ['Non spécifié', '']
-    comps = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
-    comps = comps[~comps.isin(a_exclure) & (comps != '')]
-    top_comp = comps.value_counts().head(10).reset_index()
-    top_comp.columns = ['competence', 'count']
-    fig5 = px.bar(top_comp, x='count', y='competence', orientation='h',
-                  color_discrete_sequence=['#1D9E75'])
-    fig5.update_layout(yaxis={'categoryorder': 'total ascending'},
-                       xaxis_title="Nombre de mentions", yaxis_title="")
-    st.plotly_chart(fig5, use_container_width=True)
+with col2:
+    val = dff['secteur'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Secteur dominant</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    val = dff['ville'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Ville principale</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    val = dff['contrat'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Contrat majoritaire</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 st.subheader("Assistant IA :  Posez vos questions sur les données")
