@@ -183,7 +183,7 @@ with col_d:
 
 st.divider()
 st.subheader("Assistant IA : Posez vos questions sur les données")
-st.caption("💡 Astuce : posez une question analytique ou décrivez vos compétences pour obtenir des recommandations de secteurs.")
+st.caption("Astuce : posez une question analytique ou décrivez vos compétences pour obtenir des recommandations de secteurs.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
