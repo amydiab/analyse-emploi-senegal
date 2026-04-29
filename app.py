@@ -195,32 +195,25 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    contexte = f"""Tu es un assistant spécialisé dans l'analyse du marché de l'emploi au Sénégal.
-Tu as deux capacités :
+    contexte = f"""Tu es un assistant data analyst pour le marche de l'emploi au Senegal.
 
-1. ANALYSER les données du marché :
+REGLE ABSOLUE : Si l'utilisateur parle de ses competences ou demande une recommandation de secteur, tu dois repondre UNIQUEMENT avec ce JSON exact, sans aucun texte avant ou apres :
+{{"action": "recommander", "competences": "competence1, competence2"}}
+
+Pour toute autre question analytique, utilise ces donnees :
 - Total offres : {len(dff)}
-- Secteur dominant : {dff['secteur'].value_counts().index[0] if len(dff) > 0 else '—'}
-- Ville principale : {dff['ville'].value_counts().index[0] if len(dff) > 0 else '—'}
-- Contrat majoritaire : {dff['contrat'].value_counts().index[0] if len(dff) > 0 else '—'}
 - Top 5 secteurs : {dff['secteur'].value_counts().head(5).to_dict()}
-- Top 5 compétences : {dff['competences'].dropna().str.split(',').explode().str.strip().value_counts().head(5).to_dict()}
+- Top 5 competences : {dff['competences'].dropna().str.split(',').explode().str.strip().value_counts().head(5).to_dict()}
 - Top 5 villes : {dff['ville'].value_counts().head(5).to_dict()}
-- Offres par année : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
+- Offres par annee : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
 
-2. RECOMMANDER des secteurs selon un profil :
-Si l'utilisateur mentionne ses competences ou demande une recommandation personnalisee,
-reponds UNIQUEMENT avec ce format JSON exact sans accent dans les cles :
-{{"action": "recommander", "competences": "competence1, competence2, competence3"}}
-
-Sinon reponds normalement en francais de facon concise et professionnelle.
 Question : {question}"""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Tu es un assistant data analyst specialise dans le marche de l emploi au Senegal. Reponds toujours en francais sauf pour le JSON de recommandation ou tu utilises uniquement des cles sans accent."},
+                {"role": "system", "content": "Tu es un assistant data analyst. Quand on te parle de competences ou de recommandation de secteur, reponds UNIQUEMENT avec le JSON {\"action\": \"recommander\", \"competences\": \"...\"} sans aucun texte supplementaire."},
                 {"role": "user", "content": contexte}
             ],
             max_tokens=500
