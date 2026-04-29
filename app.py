@@ -4,6 +4,8 @@ import plotly.express as px
 from dotenv import load_dotenv
 import os
 from groq import Groq
+import pickle
+import json
 
 load_dotenv()
 api_key = os.getenv('GROQ_API_KEY')
@@ -25,21 +27,53 @@ def load_data():
 
 df = load_data()
 
+@st.cache_resource
+def load_modele():
+    with open('modele_recommandation.pkl', 'rb') as f:
+        return pickle.load(f)
+
+modele = load_modele()
+
+def recommander_secteurs(competences_utilisateur, top_n=5):
+    comps_user = [c.strip().lower() for c in competences_utilisateur.split(',')]
+    comp_par_secteur = modele['comp_par_secteur']
+
+    scores = {}
+    for secteur, comps_dict in comp_par_secteur.items():
+        score = 0
+        for comp_user in comps_user:
+            for comp_secteur, count in comps_dict.items():
+                if comp_user in comp_secteur or comp_secteur in comp_user:
+                    score += count
+        scores[secteur] = score
+
+    scores_tries = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    resultats = []
+    for secteur, score in scores_tries[:top_n]:
+        nb_offres = len(df[df['secteur'] == secteur])
+        resultats.append({
+            'secteur': secteur,
+            'score': score,
+            'nb_offres': nb_offres
+        })
+    return resultats
+
 st.title("Analyse des offres d'emploi au Sénégal")
-st.caption("Source : senjob.com & goafricaonline.com — Juillet 2024 à Avril 2026")
+st.caption("Source : senjob.com & goafricaonline.com - Juillet 2024 à Avril 2026")
 
 st.sidebar.header("Filtres")
 
-secteurs = ['Tous'] + sorted([s for s in df['secteur'].dropna().unique() if s != 'Non spécifié'])
+secteurs = ['Tous'] + sorted([s for s in df['secteur'].dropna().unique() if 'non sp' not in s.lower()])
 secteur_choisi = st.sidebar.selectbox("Secteur", secteurs)
 
 annees = ['Toutes'] + sorted(df['mois'].dt.year.dropna().unique().astype(str).tolist())
 annee_choisie = st.sidebar.selectbox("Année", annees)
 
-villes = ['Toutes'] + sorted([v for v in df['ville'].dropna().unique() if v != 'Non spécifié'])
+villes = ['Toutes'] + sorted([v for v in df['ville'].dropna().unique() if 'non sp' not in v.lower()])
 ville_choisie = st.sidebar.selectbox("Ville", villes)
 
-contrats = ['Tous'] + sorted([c for c in df['contrat'].dropna().unique() if c != 'Non spécifié'])
+contrats = ['Tous'] + sorted([c for c in df['contrat'].dropna().unique() if 'non sp' not in str(c).lower()])
 contrat_choisi = st.sidebar.selectbox("Type de contrat", contrats)
 
 dff = df.copy()
@@ -52,11 +86,43 @@ if ville_choisie != 'Toutes':
 if contrat_choisi != 'Tous':
     dff = dff[dff['contrat'] == contrat_choisi]
 
+# KPI CARDS
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total offres", len(dff))
-col2.metric("Secteur dominant", dff['secteur'].value_counts().index[0] if len(dff) > 0 else "—")
-col3.metric("Ville principale", dff['ville'].value_counts().index[0] if len(dff) > 0 else "—")
-col4.metric("Contrat majoritaire", dff['contrat'].value_counts().index[0] if len(dff) > 0 else "—")
+
+with col1:
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Total offres</p>
+        <p style="margin:0; font-size:24px; font-weight:bold; color:#1D9E75;">{len(dff)}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    val = dff['secteur'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Secteur dominant</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    val = dff['ville'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Ville principale</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    val = dff['contrat'].value_counts().index[0] if len(dff) > 0 else "—"
+    st.markdown(f"""
+    <div style="background:#E8F7F2; padding:16px; border-radius:8px; border-left:4px solid #1D9E75;">
+        <p style="margin:0; font-size:12px; color:#666;">Contrat majoritaire</p>
+        <p style="margin:0; font-size:13px; font-weight:bold; color:#1A1A1A;">{val}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
@@ -116,7 +182,8 @@ with col_d:
     st.plotly_chart(fig5, use_container_width=True)
 
 st.divider()
-st.subheader("Assistant IA :  Posez vos questions sur les données")
+st.subheader("Assistant IA : Posez vos questions sur les données")
+st.caption("💡 Astuce : posez une question analytique ou décrivez vos compétences pour obtenir des recommandations de secteurs.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -125,7 +192,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-question = st.chat_input("Ex: Quel secteur recrute le plus ? Quelles compétences sont demandées ?")
+question = st.chat_input("Ex: Quel secteur recrute le plus ? ou : J'ai des compétences en finance et gestion de projet")
 
 if question:
     st.session_state.messages.append({"role": "user", "content": question})
@@ -133,7 +200,9 @@ if question:
         st.markdown(question)
 
     contexte = f"""Tu es un assistant spécialisé dans l'analyse du marché de l'emploi au Sénégal.
-Voici les données disponibles :
+Tu as deux capacités :
+
+1. ANALYSER les données du marché :
 - Total offres : {len(dff)}
 - Secteur dominant : {dff['secteur'].value_counts().index[0] if len(dff) > 0 else '—'}
 - Ville principale : {dff['ville'].value_counts().index[0] if len(dff) > 0 else '—'}
@@ -142,19 +211,40 @@ Voici les données disponibles :
 - Top 5 compétences : {dff['competences'].dropna().str.split(',').explode().str.strip().value_counts().head(5).to_dict()}
 - Top 5 villes : {dff['ville'].value_counts().head(5).to_dict()}
 - Offres par année : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
-Réponds en français, de façon concise et professionnelle.
+
+2. RECOMMANDER des secteurs selon un profil :
+Si l'utilisateur mentionne ses compétences ou demande une recommandation personnalisée,
+réponds UNIQUEMENT avec ce format JSON et rien d'autre :
+{{"action": "recommander", "competences": "competence1, competence2, competence3"}}
+
+Sinon réponds normalement en français de façon concise et professionnelle.
 Question : {question}"""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Tu es un assistant data analyst spécialisé dans le marché de l'emploi au Sénégal. Réponds toujours en français."},
+                {"role": "system", "content": "Tu es un assistant data analyst spécialisé dans le marché de l'emploi au Sénégal. Réponds toujours en français sauf pour le JSON de recommandation."},
                 {"role": "user", "content": contexte}
             ],
             max_tokens=500
         )
-        reponse = response.choices[0].message.content
+        reponse_brute = response.choices[0].message.content
+
+        try:
+            data = json.loads(reponse_brute)
+            if data.get('action') == 'recommander':
+                competences = data.get('competences', '')
+                resultats = recommander_secteurs(competences, top_n=5)
+                reponse = f"**Voici les secteurs qui correspondent le mieux à ton profil ({competences}) :**\n\n"
+                for i, r in enumerate(resultats, 1):
+                    reponse += f"{i}. **{r['secteur']}** — {r['nb_offres']} offres disponibles\n"
+                reponse += "\n*Basé sur l'analyse des compétences demandées dans chaque secteur.*"
+            else:
+                reponse = reponse_brute
+        except json.JSONDecodeError:
+            reponse = reponse_brute
+
     except Exception as e:
         reponse = f"Erreur : {str(e)}"
 
