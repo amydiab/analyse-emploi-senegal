@@ -37,7 +37,6 @@ modele = load_modele()
 def recommander_secteurs(competences_utilisateur, top_n=5):
     comps_user = [c.strip().lower() for c in competences_utilisateur.split(',')]
     comp_par_secteur = modele['comp_par_secteur']
-
     scores = {}
     for secteur, comps_dict in comp_par_secteur.items():
         score = 0
@@ -46,9 +45,7 @@ def recommander_secteurs(competences_utilisateur, top_n=5):
                 if comp_user in comp_secteur or comp_secteur in comp_user:
                     score += count
         scores[secteur] = score
-
     scores_tries = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
     resultats = []
     for secteur, score in scores_tries[:top_n]:
         nb_offres = len(df[df['secteur'] == secteur])
@@ -86,7 +83,6 @@ if ville_choisie != 'Toutes':
 if contrat_choisi != 'Tous':
     dff = dff[dff['contrat'] == contrat_choisi]
 
-# KPI CARDS
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -213,18 +209,18 @@ Tu as deux capacités :
 - Offres par année : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
 
 2. RECOMMANDER des secteurs selon un profil :
-Si l'utilisateur mentionne ses compétences ou demande une recommandation personnalisée,
-réponds UNIQUEMENT avec ce format JSON et rien d'autre :
+Si l'utilisateur mentionne ses competences ou demande une recommandation personnalisee,
+reponds UNIQUEMENT avec ce format JSON exact sans accent dans les cles :
 {{"action": "recommander", "competences": "competence1, competence2, competence3"}}
 
-Sinon réponds normalement en français de façon concise et professionnelle.
+Sinon reponds normalement en francais de facon concise et professionnelle.
 Question : {question}"""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Tu es un assistant data analyst spécialisé dans le marché de l'emploi au Sénégal. Réponds toujours en français sauf pour le JSON de recommandation."},
+                {"role": "system", "content": "Tu es un assistant data analyst specialise dans le marche de l emploi au Senegal. Reponds toujours en francais sauf pour le JSON de recommandation ou tu utilises uniquement des cles sans accent."},
                 {"role": "user", "content": contexte}
             ],
             max_tokens=500
@@ -233,8 +229,8 @@ Question : {question}"""
 
         try:
             data = json.loads(reponse_brute)
-            if data.get('action') == 'recommander':
-                competences = data.get('competences', '')
+            competences = data.get('competences') or data.get('comp\u00e9tences', '')
+            if data.get('action') == 'recommander' and competences:
                 resultats = recommander_secteurs(competences, top_n=5)
                 reponse = f"**Voici les secteurs qui correspondent le mieux à ton profil ({competences}) :**\n\n"
                 for i, r in enumerate(resultats, 1):
