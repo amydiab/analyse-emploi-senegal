@@ -211,7 +211,7 @@ Question : {question}"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "Tu es un assistant data analyst. Quand on te parle de competences ou de recommandation de secteur, reponds UNIQUEMENT avec le JSON {\"action\": \"recommander\", \"competences\": \"...\"} sans aucun texte supplementaire."},
                 {"role": "user", "content": contexte}
