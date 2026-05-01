@@ -195,16 +195,17 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-# Calculs spécifiques pour enrichir le contexte
-top_competences = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
-top_competences = top_competences[~top_competences.isin(['', 'non spécifié'])]
-top_comp_dict = top_competences.value_counts().head(10).to_dict()
+    top_competences = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
+    top_competences = top_competences[~top_competences.isin(['', 'non spécifié'])]
+    top_comp_dict = top_competences.value_counts().head(10).to_dict()
 
-contrat_par_ville = dff.groupby(['ville', 'contrat']).size().reset_index(name='count')
-contexte = f"""Tu es un assistant data analyst specialise dans le marche de l'emploi au Senegal.
+    contrat_par_ville = dff.groupby(['ville', 'contrat']).size().reset_index(name='count')
+    contrat_dominant_ville = contrat_par_ville.loc[contrat_par_ville.groupby('ville')['count'].idxmax()].set_index('ville')[['contrat', 'count']].to_dict('index')
+
+    contexte = f"""Tu es un assistant data analyst specialise dans le marche de l'emploi au Senegal.
 Tu reponds aux questions en utilisant UNIQUEMENT les donnees ci-dessous.
 
-DONNEES DISPONIBLES (filtrees selon les selections actuelles) :
+DONNEES DISPONIBLES :
 - Total offres : {len(dff)}
 - Secteur dominant : {dff['secteur'].value_counts().index[0] if len(dff) > 0 else '—'}
 - Ville principale : {dff['ville'].value_counts().index[0] if len(dff) > 0 else '—'}
@@ -213,22 +214,22 @@ DONNEES DISPONIBLES (filtrees selon les selections actuelles) :
 - Top 10 competences : {top_comp_dict}
 - Top 10 villes : {dff['ville'].value_counts().head(10).to_dict()}
 - Offres par annee : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
-- Contrats par ville : {contrat_par_ville.groupby('ville').apply(lambda x: x.nlargest(1, 'count')[['contrat','count']].to_dict('records')).to_dict()}
+- Contrat dominant par ville : {contrat_dominant_ville}
 
 REGLES STRICTES :
-1. Si la question est analytique (secteur, ville, contrat, competences, evolution) → reponds en francais avec les donnees ci-dessus
+1. Si la question est analytique → reponds en francais avec les donnees ci-dessus
 2. Si l'utilisateur cite SES PROPRES competences ou demande une recommandation personnalisee → reponds UNIQUEMENT avec ce JSON sans aucun texte :
 {{"action": "recommander", "competences": "competence1, competence2"}}
-3. Ne jamais inventer de donnees non presentes ci-dessus
+3. Ne jamais inventer de donnees
 4. Ne jamais melanger les deux types de reponses
 
-Question actuelle : {question}"""
+Question : {question}"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Tu es un assistant data analyst. Quand on te parle de competences ou de recommandation de secteur, reponds UNIQUEMENT avec le JSON {\"action\": \"recommander\", \"competences\": \"...\"} sans aucun texte supplementaire."},
+                {"role": "system", "content": "Tu es un assistant data analyst. Pour les questions analytiques, reponds en francais avec les donnees fournies. Si l'utilisateur parle de SES competences personnelles, reponds UNIQUEMENT avec le JSON {\"action\": \"recommander\", \"competences\": \"...\"} sans aucun texte supplementaire."},
                 {"role": "user", "content": contexte}
             ],
             max_tokens=500
