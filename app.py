@@ -195,19 +195,34 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    contexte = f"""Tu es un assistant data analyst pour le marche de l'emploi au Senegal.
+# Calculs spécifiques pour enrichir le contexte
+top_competences = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
+top_competences = top_competences[~top_competences.isin(['', 'non spécifié'])]
+top_comp_dict = top_competences.value_counts().head(10).to_dict()
 
-REGLE ABSOLUE : Si l'utilisateur parle de ses competences ou demande une recommandation de secteur, tu dois repondre UNIQUEMENT avec ce JSON exact, sans aucun texte avant ou apres :
-{{"action": "recommander", "competences": "competence1, competence2"}}
+contrat_par_ville = dff.groupby(['ville', 'contrat']).size().reset_index(name='count')
+contexte = f"""Tu es un assistant data analyst specialise dans le marche de l'emploi au Senegal.
+Tu reponds aux questions en utilisant UNIQUEMENT les donnees ci-dessous.
 
-Pour toute autre question analytique, utilise ces donnees :
+DONNEES DISPONIBLES (filtrees selon les selections actuelles) :
 - Total offres : {len(dff)}
-- Top 5 secteurs : {dff['secteur'].value_counts().head(5).to_dict()}
-- Top 5 competences : {dff['competences'].dropna().str.split(',').explode().str.strip().value_counts().head(5).to_dict()}
-- Top 5 villes : {dff['ville'].value_counts().head(5).to_dict()}
+- Secteur dominant : {dff['secteur'].value_counts().index[0] if len(dff) > 0 else '—'}
+- Ville principale : {dff['ville'].value_counts().index[0] if len(dff) > 0 else '—'}
+- Contrat majoritaire : {dff['contrat'].value_counts().index[0] if len(dff) > 0 else '—'}
+- Top 10 secteurs : {dff['secteur'].value_counts().head(10).to_dict()}
+- Top 10 competences : {top_comp_dict}
+- Top 10 villes : {dff['ville'].value_counts().head(10).to_dict()}
 - Offres par annee : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
+- Contrats par ville : {contrat_par_ville.groupby('ville').apply(lambda x: x.nlargest(1, 'count')[['contrat','count']].to_dict('records')).to_dict()}
 
-Question : {question}"""
+REGLES STRICTES :
+1. Si la question est analytique (secteur, ville, contrat, competences, evolution) → reponds en francais avec les donnees ci-dessus
+2. Si l'utilisateur cite SES PROPRES competences ou demande une recommandation personnalisee → reponds UNIQUEMENT avec ce JSON sans aucun texte :
+{{"action": "recommander", "competences": "competence1, competence2"}}
+3. Ne jamais inventer de donnees non presentes ci-dessus
+4. Ne jamais melanger les deux types de reponses
+
+Question actuelle : {question}"""
 
     try:
         response = client.chat.completions.create(
