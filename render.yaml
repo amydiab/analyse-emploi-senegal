@@ -3,4 +3,4 @@ services:
     name: api-emploi-senegal
     runtime: python
     buildCommand: pip install -r requirements_api.txt
-    startCommand: gunicorn api:ap
+    startCommand: gunicorn api:app
