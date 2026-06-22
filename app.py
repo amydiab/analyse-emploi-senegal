@@ -37,7 +37,6 @@ modele = load_modele()
 def recommander_secteurs(competences_utilisateur, top_n=5):
     comps_user = [c.strip().lower() for c in competences_utilisateur.split(',')]
     comp_par_secteur = modele['comp_par_secteur']
-
     scores = {}
     for secteur, comps_dict in comp_par_secteur.items():
         score = 0
@@ -46,9 +45,7 @@ def recommander_secteurs(competences_utilisateur, top_n=5):
                 if comp_user in comp_secteur or comp_secteur in comp_user:
                     score += count
         scores[secteur] = score
-
     scores_tries = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
     resultats = []
     for secteur, score in scores_tries[:top_n]:
         nb_offres = len(df[df['secteur'] == secteur])
@@ -70,10 +67,10 @@ secteur_choisi = st.sidebar.selectbox("Secteur", secteurs)
 annees = ['Toutes'] + sorted(df['mois'].dt.year.dropna().unique().astype(str).tolist())
 annee_choisie = st.sidebar.selectbox("Année", annees)
 
-villes = ['Toutes'] + sorted([v for v in df['ville'].dropna().unique() if v != 'Non spécifié'])
+villes = ['Toutes'] + sorted([v for v in df['ville'].dropna().unique() if 'non sp' not in v.lower()])
 ville_choisie = st.sidebar.selectbox("Ville", villes)
 
-contrats = ['Tous'] + sorted([c for c in df['contrat'].dropna().unique() if c != 'Non spécifié'])
+contrats = ['Tous'] + sorted([c for c in df['contrat'].dropna().unique() if 'non sp' not in str(c).lower()])
 contrat_choisi = st.sidebar.selectbox("Type de contrat", contrats)
 
 dff = df.copy()
@@ -86,7 +83,6 @@ if ville_choisie != 'Toutes':
 if contrat_choisi != 'Tous':
     dff = dff[dff['contrat'] == contrat_choisi]
 
-# KPI CARDS
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -183,7 +179,7 @@ with col_d:
 
 st.divider()
 st.subheader("Assistant IA : Posez vos questions sur les données")
-st.caption("Astuce : posez une question analytique ou décrivez vos compétences pour obtenir des recommandations de secteurs.")
+st.caption("💡 Astuce : posez une question analytique ou décrivez vos compétences pour obtenir des recommandations de secteurs.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -199,43 +195,51 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    contexte = f"""Tu es un assistant spécialisé dans l'analyse du marché de l'emploi au Sénégal.
-Tu as deux capacités :
+    top_competences = dff['competences'].dropna().str.split(',').explode().str.strip().str.lower()
+    top_competences = top_competences[~top_competences.isin(['', 'non spécifié'])]
+    top_comp_dict = top_competences.value_counts().head(10).to_dict()
 
-1. ANALYSER les données du marché :
+    contrat_par_ville = dff.groupby(['ville', 'contrat']).size().reset_index(name='count')
+    contrat_dominant_ville = contrat_par_ville.loc[contrat_par_ville.groupby('ville')['count'].idxmax()].set_index('ville')[['contrat', 'count']].to_dict('index')
+
+    contexte = f"""Tu es un assistant data analyst specialise dans le marche de l'emploi au Senegal.
+Tu reponds aux questions en utilisant UNIQUEMENT les donnees ci-dessous.
+
+DONNEES DISPONIBLES :
 - Total offres : {len(dff)}
 - Secteur dominant : {dff['secteur'].value_counts().index[0] if len(dff) > 0 else '—'}
 - Ville principale : {dff['ville'].value_counts().index[0] if len(dff) > 0 else '—'}
 - Contrat majoritaire : {dff['contrat'].value_counts().index[0] if len(dff) > 0 else '—'}
-- Top 5 secteurs : {dff['secteur'].value_counts().head(5).to_dict()}
-- Top 5 compétences : {dff['competences'].dropna().str.split(',').explode().str.strip().value_counts().head(5).to_dict()}
-- Top 5 villes : {dff['ville'].value_counts().head(5).to_dict()}
-- Offres par année : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
+- Top 10 secteurs : {dff['secteur'].value_counts().head(10).to_dict()}
+- Top 10 competences : {top_comp_dict}
+- Top 10 villes : {dff['ville'].value_counts().head(10).to_dict()}
+- Offres par annee : {dff.groupby(dff['mois'].dt.year).size().to_dict()}
+- Contrat dominant par ville : {contrat_dominant_ville}
 
-2. RECOMMANDER des secteurs selon un profil :
-Si l'utilisateur mentionne ses compétences ou demande une recommandation personnalisée,
-réponds UNIQUEMENT avec ce format JSON et rien d'autre :
-{{"action": "recommander", "competences": "competence1, competence2, competence3"}}
+REGLES STRICTES :
+1. Si la question est analytique → reponds en francais avec les donnees ci-dessus
+2. Si l'utilisateur cite SES PROPRES competences ou demande une recommandation personnalisee → reponds UNIQUEMENT avec ce JSON sans aucun texte :
+{{"action": "recommander", "competences": "competence1, competence2"}}
+3. Ne jamais inventer de donnees
+4. Ne jamais melanger les deux types de reponses
 
-Sinon réponds normalement en français de façon concise et professionnelle.
 Question : {question}"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Tu es un assistant data analyst spécialisé dans le marché de l'emploi au Sénégal. Réponds toujours en français sauf pour le JSON de recommandation."},
+                {"role": "system", "content": "Tu es un assistant data analyst. Pour les questions analytiques, reponds en francais avec les donnees fournies. Si l'utilisateur parle de SES competences personnelles, reponds UNIQUEMENT avec le JSON {\"action\": \"recommander\", \"competences\": \"...\"} sans aucun texte supplementaire."},
                 {"role": "user", "content": contexte}
             ],
             max_tokens=500
         )
         reponse_brute = response.choices[0].message.content
 
-        # Vérifier si c'est une demande de recommandation
         try:
             data = json.loads(reponse_brute)
-            if data.get('action') == 'recommander':
-                competences = data.get('competences', '')
+            competences = data.get('competences') or data.get('comp\u00e9tences', '')
+            if data.get('action') == 'recommander' and competences:
                 resultats = recommander_secteurs(competences, top_n=5)
                 reponse = f"**Voici les secteurs qui correspondent le mieux à ton profil ({competences}) :**\n\n"
                 for i, r in enumerate(resultats, 1):
